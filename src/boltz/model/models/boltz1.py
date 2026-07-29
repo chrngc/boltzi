@@ -33,7 +33,11 @@ from boltz.model.modules.trunk import (
     MSAModule,
     PairformerModule,
 )
-from boltz.model.modules.utils import ExponentialMovingAverage
+from boltz.model.modules.utils import (
+    ExponentialMovingAverage,
+    empty_cache_for_device,
+    is_cuda_sm8_or_newer,
+)
 from boltz.model.optim.scheduler import AlphaFoldLRScheduler
 
 
@@ -263,10 +267,7 @@ class Boltz1(LightningModule):
 
     def setup(self, stage: str) -> None:
         """Set the model for training, validation and inference."""
-        if stage == "predict" and not (
-            torch.cuda.is_available()
-            and torch.cuda.get_device_properties(torch.device("cuda")).major >= 8.0  # noqa: PLR2004
-        ):
+        if stage == "predict" and not is_cuda_sm8_or_newer():
             self.use_kernels = False
 
     def forward(
@@ -630,7 +631,7 @@ class Boltz1(LightningModule):
         except RuntimeError as e:  # catch out of memory exceptions
             if "out of memory" in str(e):
                 print("| WARNING: ran out of memory, skipping batch")
-                torch.cuda.empty_cache()
+                empty_cache_for_device(self.device)
                 gc.collect()
                 return
             else:
@@ -684,7 +685,7 @@ class Boltz1(LightningModule):
         except RuntimeError as e:  # catch out of memory exceptions
             if "out of memory" in str(e):
                 print("| WARNING: ran out of memory, skipping batch")
-                torch.cuda.empty_cache()
+                empty_cache_for_device(self.device)
                 gc.collect()
                 return
             else:
@@ -1198,7 +1199,7 @@ class Boltz1(LightningModule):
         except RuntimeError as e:  # catch out of memory exceptions
             if "out of memory" in str(e):
                 print("| WARNING: ran out of memory, skipping batch")
-                torch.cuda.empty_cache()
+                empty_cache_for_device(self.device)
                 gc.collect()
                 return {"exception": True}
             else:

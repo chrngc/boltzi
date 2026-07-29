@@ -845,7 +845,7 @@ def cli() -> None:
 )
 @click.option(
     "--accelerator",
-    type=click.Choice(["gpu", "cpu", "tpu"]),
+    type=click.Choice(["gpu", "cpu", "tpu", "xpu", "auto"]),
     help="The accelerator to use for prediction. Default is gpu.",
     default="gpu",
 )
@@ -1083,6 +1083,8 @@ def predict(  # noqa: C901, PLR0915, PLR0912
     if accelerator == "cpu":
         msg = "Running on CPU, this will be slow. Consider using a GPU."
         click.echo(msg)
+    if accelerator == "xpu":
+        click.echo("Running on Intel GPU (XPU) backend.")
 
     # Supress some lightning warnings
     warnings.filterwarnings(
@@ -1253,13 +1255,21 @@ def predict(  # noqa: C901, PLR0915, PLR0912
     )
 
     # Set up trainer
+    trainer_precision: str | int
+    if model == "boltz1":
+        trainer_precision = 32
+    elif accelerator in {"cpu", "tpu"}:
+        trainer_precision = 32
+    else:
+        trainer_precision = "bf16-mixed"
+
     trainer = Trainer(
         default_root_dir=out_dir,
         strategy=strategy,
         callbacks=[pred_writer],
         accelerator=accelerator,
         devices=devices,
-        precision=32 if model == "boltz1" else "bf16-mixed",
+        precision=trainer_precision,
     )
 
     if filtered_manifest.records:

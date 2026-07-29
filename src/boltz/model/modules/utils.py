@@ -26,6 +26,39 @@ def autocast_device_type(device_type: str) -> str:
     return device_type if is_autocast_available(device_type) else "cpu"
 
 
+def is_cuda_sm8_or_newer() -> bool:
+    """Return whether CUDA is available and compute capability is >= 8.0."""
+    return bool(
+        torch.cuda.is_available()
+        and torch.cuda.get_device_properties(torch.device("cuda")).major >= 8.0  # noqa: PLR2004
+    )
+
+
+def empty_cache_for_device(device: Optional[torch.device | str] = None) -> None:
+    """Clear cache for CUDA/XPU if available.
+
+    Parameters
+    ----------
+    device : Optional[torch.device | str]
+        Device used to determine which backend cache to clear. If None,
+        CUDA is preferred when available, otherwise XPU.
+    """
+    if device is None:
+        if torch.cuda.is_available():
+            torch.cuda.empty_cache()
+            return
+        if hasattr(torch, "xpu") and torch.xpu.is_available():
+            torch.xpu.empty_cache()
+            return
+        return
+
+    device = torch.device(device)
+    if device.type == "cuda" and torch.cuda.is_available():
+        torch.cuda.empty_cache()
+    elif device.type == "xpu" and hasattr(torch, "xpu") and torch.xpu.is_available():
+        torch.xpu.empty_cache()
+
+
 def exists(v):
     return v is not None
 
